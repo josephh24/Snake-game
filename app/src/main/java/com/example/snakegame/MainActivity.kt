@@ -24,10 +24,16 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.center
+import androidx.compose.ui.graphics.RadialGradientShader
+import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.example.snakegame.ui.theme.SnakeGameTheme
@@ -65,7 +71,7 @@ class MainActivity : ComponentActivity() {
 }
 
 // Estado del juego, incluye posición de la comida y partes de la serpiente
-data class State(val food: Pair<Int, Int>, val snake: List<Pair<Int, Int>>)
+data class State(val food: Pair<Int, Int>, val snake: List<Pair<Int, Int>>, val score: Int)
 
 class Game(private val scope: CoroutineScope) {
 
@@ -74,7 +80,7 @@ class Game(private val scope: CoroutineScope) {
 
     // Estado mutable del juego
     private val mutableState =
-        MutableStateFlow(State(food = Pair(5, 5), snake = listOf(Pair(7, 7))))
+        MutableStateFlow(State(food = Pair(5, 5), snake = listOf(Pair(7, 7)), score = 0))
 
     // Estado inmutable del juego accesible externamente
     val state: Flow<State> = mutableState
@@ -94,6 +100,7 @@ class Game(private val scope: CoroutineScope) {
         // Inicializar el juego
         scope.launch {
             var snakeLength = 4
+            var score = 0
 
             while (true) {
                 delay(150)
@@ -111,11 +118,13 @@ class Game(private val scope: CoroutineScope) {
                     // Incrementar la longitud de la serpiente si se encuentra con la comida
                     if (newPosition == it.food) {
                         snakeLength++
+                        score += 10 // Puedes ajustar la puntuación según tus preferencias
                     }
 
                     // Restaurar la longitud de la serpiente si colisiona consigo misma
                     if (it.snake.contains(newPosition)) {
                         snakeLength = 4
+                        score = 0
                     }
 
                     // Actualizar el estado del juego
@@ -124,7 +133,8 @@ class Game(private val scope: CoroutineScope) {
                             Random().nextInt(BOARD_SIZE),
                             Random().nextInt(BOARD_SIZE)
                         ) else it.food,
-                        snake = listOf(newPosition) + it.snake.take(snakeLength - 1)
+                        snake = listOf(newPosition) + it.snake.take(snakeLength - 1),
+                        score = score
                     )
                 }
             }
@@ -147,6 +157,10 @@ fun Snake(game: Game) {
         // Mostrar el tablero si el estado no es nulo
         state.value?.let {
             Board(it)
+            // Mostrar la puntuación
+            Text("Score: ${it.score}",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary)
         }
         // Mostrar los botones de control
         Buttons {
@@ -201,15 +215,32 @@ fun Board(state: State) {
                 .border(2.dp, MaterialTheme.colorScheme.primary)
         )
 
+        val color1 = MaterialTheme.colorScheme.primary
+        val color2 = MaterialTheme.colorScheme.primaryContainer
+
+        val largeRadialGradient = object : ShaderBrush() {
+            override fun createShader(size: Size): Shader {
+                val biggerDimension = maxOf(size.height, size.width)
+                return RadialGradientShader(
+                    colors = listOf(color1, color2),
+                    center = size.center,
+                    radius = biggerDimension / 2f,
+                    colorStops = listOf(0f, 0.95f),
+                )
+            }
+        }
+
         // Box que representa la comida
         Box(
             Modifier
                 .offset(x = tileSize * state.food.first, y = tileSize * state.food.second)
                 .size(tileSize)
                 .background(
-                    MaterialTheme.colorScheme.primary, CircleShape
+                    brush = largeRadialGradient,
+                    shape = CircleShape
                 )
         )
+
 
         // Iterar sobre las partes de la serpiente y mostrarlas como celdas del tablero
         state.snake.forEach {
@@ -223,9 +254,4 @@ fun Board(state: State) {
             )
         }
     }
-}
-
-//test
-private fun test(){
-    //nothing
 }
