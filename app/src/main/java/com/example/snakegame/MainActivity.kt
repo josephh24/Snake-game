@@ -226,3 +226,6 @@ fun Board(state: State) {
 }
 
 //test
+private fun test(){
+    //nothing
+}
